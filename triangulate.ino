@@ -1,5 +1,5 @@
 /*
-    Author: MaHir
+    Author: MaHir & ToniNii
     See also additional text later
 
     This script is used for wifi-positioning:
@@ -10,25 +10,52 @@
     triangulate postioning method. Due to poor 
     quality of scan accurascy, error handling is made
     with "smallest enclosing circle" method.
+	
+	Code is written for ESP8266 module (Wemos D1 mini pro).
 */
 #include <math.h>
 #include <random>
 #include "SmallestEnclosingCircle.h"
+#include "ESP8266WiFi.h"
 
 #define ARRAY_SIZE(someArray) (sizeof(someArray) / sizeof(someArray[0]))
 
-// tower position, radius
-float Ax=10;
-float Ay=10;
-float Ar =16;
+// SSIDs and positions for all WiFi beacons:
+int BeaconCount = 3;		// Amound of beacons
+int BeaconInfoCount = 3;	// Amount of data variables for single beacon
+struct Beacon {
+	const char SSID;
+	int x;
+	int y;
+	int r;
+	} Beacons [BeaconCount];
 
-float Bx=25;
-float By=35;
-float Br =16;
+Beacons[0].SSID = "SSID1";
+Beacons[0].x = 10;
+Beacons[0].y = 10;
 
-float Cx=32;
-float Cy=5;
-float Cr =16;
+Beacons[1].SSID = "SSID2";
+Beacons[1].x = 25;
+Beacons[1].y = 35;
+
+Beacons[2].SSID = "SSID3";
+Beacons[2].x = 32;
+Beacons[2].y = 5;
+
+//float Ax=10;
+//float Ay=10;
+
+//const char BeaconB = "SSID2";
+//float Bx=25;
+//float By=35;
+
+//const char BeaconC = "SSID3";
+//float Cx=32;
+//float Cy=5;
+
+//float Ar =16;
+//float Br =16;
+//float Cr =16; //Define these from rssi!
 
 float error=0;
 int nroOFintersections=0;
@@ -39,18 +66,56 @@ Point intersectionsArray[6];
 
 void setup() {
   Serial.begin(115200);
+  
+  // Set WiFi to station mode and disconnect from an AP if it was previously connected
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
+  
   Serial.println("Setup done");
 }
 
 void loop() {
   // STEP1: scan the wifi APs
-  // System keeps scanning until at least
-  // three known AP-tower is been found
+  // System scans all networks and if three or more networks are found
+  // it continues and adds the radius for all beacons.
   Serial.println("scan start");
-  // TODO: add wifi scan.
-  Serial.println("scan done, three tower found");
+  // WiFi.scanNetworks will return the number of networks found
+  int n = WiFi.scanNetworks();
+  int rssi=0;
+  double to_exp=0;
+  int = BcnCount = 0;
+  Serial.println("scan done");
+  if (n == 0) {
+    Serial.println("no networks found");
+  } 
+  if (n < 3){Serial.println("Not enough beacons found, can not triangulate!")}
+  else {
+    Serial.print(n);
+    Serial.println(" networks found");
+    for (int i = 0; i < n; ++i) {
+		for (int j = 0; j < BeaconCount; ++j){
+			if (WiFi.SSID(i)==beacons[j].SSID){
+				Serial.print(WiFi.SSID(i)+ " ,strength: "+ WiFi.RSSI(i) +"dBm");
+				rssi=-WiFi.RSSI(i);
+				to_exp=(27.55-(20*log10(2412))+rssi)/20;
+				distance=100*pow(10,to_exp);
+				beacons[j].r = distance;			//Insert radius of beacon to list of beacon info
+				BcnCount++;
+				Serial.print(" ,distance: ");
+				Serial.print((float)(distance),1);
+				Serial.println("cm");
+			}
+		}
+    }
+  }
+  if (BcnCount < 3){Serial.println("Not enough beacons found, can not triangulate!");}
+  
+  Serial.print("scan done");
+  Serial.print(BcnCount);
+  Serial.print("towers found, radius for beacons added")
 
-  // STEP2: calcilate intersections
+  // STEP2: calculate intersections
   // System calculates intersections of three
   // wifi APs based on previously saved array radius
   // TODO: add proper array for different tower positions
